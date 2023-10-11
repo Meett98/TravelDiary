@@ -28,9 +28,12 @@ import com.example.mytodos.databinding.ActivityCreatePostBinding
 import com.example.mytodos.db.TravelPostDao
 import com.example.mytodos.db.TravelPostDatabase
 import com.example.mytodos.entity.EntityPost
+import com.example.mytodos.entity.TravelEntityRDB
 import com.example.mytodos.repository.TravelPostRepository
 import com.example.mytodos.viewmodel.TravelPostViewModel
 import com.example.mytodos.viewmodel.TravelPostViewModelFactory
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
@@ -49,6 +52,7 @@ class CreatePostActivity : AppCompatActivity() {
     private var id: Int = 0
     private var selectedImageUri: Uri? = null
     private var count: Int = 0
+    private lateinit var dbRef : DatabaseReference
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,6 +79,7 @@ class CreatePostActivity : AppCompatActivity() {
         count = intent.getIntExtra("COUNT", 0)
 
 
+        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB")
 
 
 
@@ -105,11 +110,22 @@ class CreatePostActivity : AppCompatActivity() {
                 Toast.makeText(this, "Please Select the image from gallery", Toast.LENGTH_SHORT)
                     .show()
             } else {
-                val entityPost =
-                    EntityPost(0, postTitle, postLocation, username, password, imageUri)
-                travelPostViewModel.insertTravelPost(entityPost)
+//                val entityPost =
+//                    EntityPost(0, postTitle, postLocation, username, password, imageUri)
+//                travelPostViewModel.insertTravelPost(entityPost)
 
-                Toast.makeText(this, "Post Added", Toast.LENGTH_LONG).show()
+
+                val childId = dbRef.push().key!!
+                val entityRDB = TravelEntityRDB(0, postTitle, postLocation, username, password, imageUri)
+                dbRef.child(childId).setValue(entityRDB)
+                    .addOnCompleteListener{
+                        Toast.makeText(this, "Post Added", Toast.LENGTH_LONG).show()
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(this, "Error : ${it.message}", Toast.LENGTH_LONG).show()
+                    }
+
+
 
                 val iNext = Intent(this, MainActivity::class.java)
                 startActivity(iNext)
