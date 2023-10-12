@@ -33,6 +33,10 @@ class RegisterActivity : AppCompatActivity() {
             if (username == "" || password == "" || email == "") {
                 Toast.makeText(this, "Please enter all the details", Toast.LENGTH_SHORT).show()
             }
+            else if(username.length >17){
+                Toast.makeText(this, "Your Username is too large..", Toast.LENGTH_SHORT).show()
+
+            }
             else {
                 val editor = sharedPreference.edit()
                 editor.putString("PASSWORD", password)

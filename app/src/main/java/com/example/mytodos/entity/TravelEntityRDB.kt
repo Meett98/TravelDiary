@@ -1,7 +1,7 @@
 package com.example.mytodos.entity
 
 data class TravelEntityRDB(
-    var id: Int? = null,
+    var id: String?= null,
     var posttitle: String? = null,
     var location: String? = null,
     var username: String? = null,

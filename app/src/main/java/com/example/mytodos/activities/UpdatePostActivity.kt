@@ -1,8 +1,10 @@
 package com.example.mytodos.activities
 
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
@@ -11,7 +13,10 @@ import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import com.example.mytodos.R
@@ -19,43 +24,37 @@ import com.example.mytodos.databinding.ActivityUpdatePostBinding
 import com.example.mytodos.db.TravelPostDao
 import com.example.mytodos.db.TravelPostDatabase
 import com.example.mytodos.entity.EntityPost
+import com.example.mytodos.entity.TravelEntityRDB
+import com.example.mytodos.fragment.ConfirmationDialogFragment
 import com.example.mytodos.repository.TravelPostRepository
 import com.example.mytodos.viewmodel.TravelPostViewModel
 import com.example.mytodos.viewmodel.TravelPostViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import java.io.File
 import java.io.FileOutputStream
 
 class UpdatePostActivity : AppCompatActivity() {
     private lateinit var binding : ActivityUpdatePostBinding
-    private lateinit var travelPostViewModel: TravelPostViewModel
-    private lateinit var travelPostDatabase: TravelPostDatabase
     private lateinit var username:String
     private lateinit var password:String
-    private lateinit var travelPostRepository: TravelPostRepository
-    private lateinit var travelPostDao: TravelPostDao
     private lateinit var postTitle:String
     private lateinit var postLocation:String
-
+    private val REQUEST_WRITE_EXTERNAL_STORAGE = 1
     private lateinit var btn:String
-    private var id:Int=0
+    private lateinit var childid:String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityUpdatePostBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        travelPostDatabase = TravelPostDatabase.getDatabase(this)
-        travelPostDao = TravelPostDatabase.getDatabase(this).travelpostDAO()
-        travelPostRepository = TravelPostRepository(travelPostDao)
-        travelPostViewModel = ViewModelProvider(this, TravelPostViewModelFactory(travelPostRepository))[TravelPostViewModel::class.java]
 
-
-        binding.imagePost.setImageResource(R.drawable.travelimg3)
 
         val intent = intent     //getIntent()
         username = intent.getStringExtra("USERNAME").toString()
         password = intent.getStringExtra("PASSWORD").toString()
-        id=intent.getIntExtra("ID",0)
+        childid=intent.getStringExtra("ID").toString()
         postTitle = intent.getStringExtra("POSTTITLE").toString()
         postLocation = intent.getStringExtra("LOCATION").toString()
         btn = intent.getStringExtra("BUTTON_TEXT").toString()
@@ -71,26 +70,40 @@ class UpdatePostActivity : AppCompatActivity() {
             postTitle = binding.postTitle.text.toString()
             postLocation = binding.postLocation.text.toString()
 
+            val user = FirebaseAuth.getInstance().currentUser
+            val uid = user?.uid
+            val dbRef = FirebaseDatabase
+                .getInstance().getReference("TravelRDB/$uid").child(childid)
 
-            val entityPost = EntityPost(id,postTitle,postLocation,username,password,imageUri)
+            val updatedUser = TravelEntityRDB(childid,postTitle,postLocation,username,password,imageUri)
+            dbRef.setValue(updatedUser)
+            Toast.makeText(this, "Post Updated", Toast.LENGTH_LONG).show()
 
-            travelPostViewModel.updateTravelPost(entityPost)
-            Toast.makeText(this, "Updated the Post", Toast.LENGTH_LONG).show()
-            val iNext= Intent(this, MainActivity::class.java)
-            startActivity(iNext)
+            val intent = Intent(this,MainActivity::class.java)
+            finish()
+            startActivity(intent)
+
         }
 
         binding.deleteButton.setOnClickListener {
-            postTitle = binding.postTitle.text.toString()
-            postLocation = binding.postLocation.text.toString()
 
-            val entityPost = EntityPost(id,postTitle,postLocation,username,password,imageUri)
+            val user = FirebaseAuth.getInstance().currentUser
+            val uid = user?.uid
+            val dbRef = FirebaseDatabase
+                .getInstance().getReference("TravelRDB/$uid").child(childid)
+            val mTask = dbRef.removeValue()
 
-            travelPostViewModel.deleteTravelPost(entityPost)
-            Toast.makeText(this, "Post Deleted", Toast.LENGTH_LONG).show()
-            val iNext= Intent(this, MainActivity::class.java)
-            startActivity(iNext)
+            mTask.addOnSuccessListener {
+                Toast.makeText(this, "Post Deleted", Toast.LENGTH_LONG).show()
+                val intent = Intent(this,MainActivity::class.java)
+                finish()
+                startActivity(intent)
+            }.addOnFailureListener{error ->
+                Toast.makeText(this, "Deleting Error ${error.message}", Toast.LENGTH_LONG).show()
+            }
+
         }
+
 
 
 

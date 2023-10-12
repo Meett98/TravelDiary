@@ -16,6 +16,7 @@
 
     <!-- Location TextView -->
 
+
     <EditText
         android:id="@+id/postTitle"
         android:layout_width="match_parent"

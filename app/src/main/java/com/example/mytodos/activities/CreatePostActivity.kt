@@ -32,6 +32,7 @@ import com.example.mytodos.entity.TravelEntityRDB
 import com.example.mytodos.repository.TravelPostRepository
 import com.example.mytodos.viewmodel.TravelPostViewModel
 import com.example.mytodos.viewmodel.TravelPostViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import java.io.ByteArrayOutputStream
@@ -40,18 +41,12 @@ import java.io.IOException
 class CreatePostActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreatePostBinding
-    private lateinit var travelPostViewModel: TravelPostViewModel
-    private lateinit var travelPostDatabase: TravelPostDatabase
     private lateinit var username: String
     private lateinit var password: String
-    private lateinit var travelPostRepository: TravelPostRepository
-    private lateinit var travelPostDao: TravelPostDao
     private lateinit var postTitle: String
     private lateinit var postLocation: String
-    private lateinit var btn: String
     private var id: Int = 0
     private var selectedImageUri: Uri? = null
-    private var count: Int = 0
     private lateinit var dbRef : DatabaseReference
 
 
@@ -60,26 +55,14 @@ class CreatePostActivity : AppCompatActivity() {
         binding = ActivityCreatePostBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        //val sharedPreference =getSharedPreferences("Login_Activity", Context.MODE_PRIVATE)
-        travelPostDatabase = TravelPostDatabase.getDatabase(this)
-        travelPostDao = TravelPostDatabase.getDatabase(this).travelpostDAO()
-        travelPostRepository = TravelPostRepository(travelPostDao)
-        travelPostViewModel = ViewModelProvider(
-            this,
-            TravelPostViewModelFactory(travelPostRepository)
-        )[TravelPostViewModel::class.java]
-
         val intent = intent     //getIntent()
         username = intent.getStringExtra("USERNAME").toString()
         password = intent.getStringExtra("PASSWORD").toString()
-        id = intent.getIntExtra("ID", 0)
-        postTitle = intent.getStringExtra("TITLE").toString()
-        postLocation = intent.getStringExtra("LOCATION").toString()
-        btn = intent.getStringExtra("BUTTON_TEXT").toString()
-        count = intent.getIntExtra("COUNT", 0)
 
+        val user = FirebaseAuth.getInstance().currentUser
+        val uid = user?.uid
 
-        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB")
+        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB/$uid")
 
 
 
@@ -90,9 +73,7 @@ class CreatePostActivity : AppCompatActivity() {
 
 
 
-            if (count.equals(4)) {
-                createNotification()
-            }
+
 
 
             if (selectedImageUri != null) {
@@ -110,13 +91,9 @@ class CreatePostActivity : AppCompatActivity() {
                 Toast.makeText(this, "Please Select the image from gallery", Toast.LENGTH_SHORT)
                     .show()
             } else {
-//                val entityPost =
-//                    EntityPost(0, postTitle, postLocation, username, password, imageUri)
-//                travelPostViewModel.insertTravelPost(entityPost)
-
 
                 val childId = dbRef.push().key!!
-                val entityRDB = TravelEntityRDB(0, postTitle, postLocation, username, password, imageUri)
+                val entityRDB = TravelEntityRDB(childId, postTitle, postLocation, username, password, imageUri)
                 dbRef.child(childId).setValue(entityRDB)
                     .addOnCompleteListener{
                         Toast.makeText(this, "Post Added", Toast.LENGTH_LONG).show()
@@ -161,48 +138,7 @@ class CreatePostActivity : AppCompatActivity() {
     }
 
 
-    private fun createNotification() {
-        // Create a notification channel (for Android 8.0 and higher)
-        createNotificationChannel()
 
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Congretulations!!")
-            .setContentText("You've reached 5 posts in your travel diary.")
-            .setSmallIcon(R.drawable.twotone_celebration_24)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-
-        with(NotificationManagerCompat.from(this)) {
-            if (ActivityCompat.checkSelfPermission(
-                    this@CreatePostActivity,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return
-            }
-            notify(NOTIFICATION_ID, notification.build())
-        }
-
-
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-            val name = "Download Channel"
-            val descriptionText = "Channel for download notifications"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-            }
-
-            val notificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-
-    }
 
     // Use the URI to load the image as a Bitmap
     fun uriToBitmap(context: Context, imageUri: Uri): Bitmap? {

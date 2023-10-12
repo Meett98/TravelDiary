@@ -1,14 +1,24 @@
 package com.example.mytodos.activities
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.mytodos.R
 import com.example.mytodos.adapter.ITravelPostClick
 import com.example.mytodos.adapter.RDBTravelPostAdapter
 import com.example.mytodos.adapter.TravelPostAdapter
@@ -36,11 +46,6 @@ class MainActivity : AppCompatActivity(){
     private lateinit var binding: ActivityMainBinding
     private var receiver = AirplaneModeChangeReceiver()
 
-    private lateinit var travelPostAdapter: TravelPostAdapter
-    private lateinit var travelPostViewModel: TravelPostViewModel
-    private lateinit var travelPostRepository: TravelPostRepository
-    private lateinit var travelPostDao: TravelPostDao
-    private lateinit var travelPostDatabase: TravelPostDatabase
     private lateinit var auth: FirebaseAuth
     private lateinit var travelList : ArrayList<TravelEntityRDB>
     private lateinit var dbRef : DatabaseReference
@@ -53,26 +58,12 @@ class MainActivity : AppCompatActivity(){
         binding= ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-
-        //for to-do list
-//        todoAdapter= TodoAdapter(this,this)
-//        database= TodoDatabase.getDatabase(this)
-//        todoDAO = TodoDatabase.getDatabase(this).todoDAO()
-//        toDoRepository = ToDoRepository(todoDAO)
-//        mainViewModel= ViewModelProvider(this, MainViewModelFactory(toDoRepository))[MainViewModel::class.java]
-
         auth = FirebaseAuth.getInstance()
         val currentUser = auth.currentUser
+        val uid = currentUser?.uid
         val username = currentUser?.displayName
         Log.d("UsernameFromRegister",username!!)
         binding.tvDisplay.text= "Welcome, $username"
-
-
-//        travelPostAdapter = TravelPostAdapter(this)
-//        travelPostDatabase = TravelPostDatabase.getDatabase(this)
-//        travelPostDao = TravelPostDatabase.getDatabase(this).travelpostDAO()
-//        travelPostRepository = TravelPostRepository(travelPostDao)
-//        travelPostViewModel = ViewModelProvider(this,TravelPostViewModelFactory(travelPostRepository))[TravelPostViewModel::class.java]
 
 
 
@@ -99,30 +90,37 @@ class MainActivity : AppCompatActivity(){
             finish()
         }
 
-        binding.btnDownload.setOnClickListener{
 
-            val dialogFragment = ConfirmationDialogFragment()
-            dialogFragment.show(supportFragmentManager, "ConfirmationDialog")
-        }
         travelList = ArrayList<TravelEntityRDB>()
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this@MainActivity)
         if (password != null && username != null) {
             addPost(username,password)
         }
-        getTravelDataFromRDB()
+        getTravelDataFromRDB(uid!!)
+        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB/$uid")
 
+        dbRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    val count = dataSnapshot.childrenCount.toInt()
+                    val sharedPreferences = getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+                    val isNotificationShown = sharedPreferences.getBoolean("notificationShown", false)
 
+                    if (count == 4 && !isNotificationShown) {
+                        createNotification()
+                        sharedPreferences.edit().putBoolean("notificationShown", true).apply()
+                    }
 
+                } else {
 
+                }
+            }
 
-
-//        setLayoutManagerAndAdapterForTravelPost()
-//        if (username != null) {
-//            updateTravelPost(username)
-//        }
-
-
+            override fun onCancelled(databaseError: DatabaseError) {
+                // Handle any errors, if necessary
+            }
+        })
 
 
         FirebaseMessaging.getInstance().token
@@ -138,8 +136,8 @@ class MainActivity : AppCompatActivity(){
 
     }
 
-    private fun getTravelDataFromRDB() {
-        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB")
+    private fun getTravelDataFromRDB(uid:String) {
+        dbRef = FirebaseDatabase.getInstance().getReference("TravelRDB/$uid")
         dbRef.addValueEventListener(object : ValueEventListener{
             override fun onDataChange(data: DataSnapshot) {
                 travelList.clear()
@@ -163,7 +161,6 @@ class MainActivity : AppCompatActivity(){
                                         iUpdate.putExtra("POSTTITLE",li.posttitle)
                                         iUpdate.putExtra("LOCATION",li.location)
                                         iUpdate.putExtra("IMAGEUri",li.imageUri)
-                                        iUpdate.putExtra("BUTTON_TEXT","Update")
                                         startActivity(iUpdate)
                             }
                         })
@@ -186,21 +183,14 @@ class MainActivity : AppCompatActivity(){
 
 
     private fun addPost(username: String, password: String) {
-        var count = -1
         binding.add.setOnClickListener {
-            travelPostViewModel.getUserPostCount(username).observe(this) {
                 val iCreate=Intent(this@MainActivity, CreatePostActivity::class.java)
                 iCreate.putExtra("USERNAME",username)
                 iCreate.putExtra("PASSWORD",password)
-                iCreate.putExtra("ID",0)
-                iCreate.putExtra("TITLE","")
-                iCreate.putExtra("LOCATION","")
-                iCreate.putExtra("BUTTON_TEXT","SAVE")
-                iCreate.putExtra("COUNT",it)
                 startActivity(iCreate)
             }
 
-        }
+
 
     }
 
@@ -213,42 +203,6 @@ class MainActivity : AppCompatActivity(){
 
 
 
-    private fun setLayoutManagerAndAdapterForTravelPost() {
-        binding.recyclerView.apply {
-            layoutManager= LinearLayoutManager(this@MainActivity)
-            adapter=travelPostAdapter
-        }
-    }
-
-
-
-    private fun updateTravelPost(username: String) {
-        travelPostViewModel.getAllTravelPost(username)
-        travelPostViewModel.allTravelPost.observe(this){travelPostlist ->
-            travelPostlist?.let{
-                travelPostAdapter.updateTravelPostList(it)
-
-            }
-        }
-    }
-
-//    override fun onPostItemClick(entityPost: EntityPost) {
-////        val iUpdate=Intent(this@MainActivity, UpdatePostActivity::class.java)
-////        iUpdate.putExtra("USERNAME",entityPost.username)
-////        iUpdate.putExtra("PASSWORD",entityPost.password)
-////        iUpdate.putExtra("ID",entityPost.id)
-////        iUpdate.putExtra("POSTTITLE",entityPost.posttitle)
-////        iUpdate.putExtra("LOCATION",entityPost.location)
-////        iUpdate.putExtra("IMAGEUri",entityPost.imageUri)
-////        iUpdate.putExtra("BUTTON_TEXT","Update")
-////        startActivity(iUpdate)
-////
-////        setLayoutManagerAndAdapterForTravelPost()
-////        updateTravelPost(entityPost.username)
-//    }
-
-
-
 
 
     private fun clearSharedPreferenceData() {
@@ -258,7 +212,51 @@ class MainActivity : AppCompatActivity(){
         editor.apply()
     }
 
+    private fun createNotification() {
+        // Create a notification channel (for Android 8.0 and higher)
+        createNotificationChannel()
 
 
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Congratulations!!")
+            .setContentText("You've reached 4 posts in your travel diary.")
+            .setSmallIcon(R.drawable.twotone_celebration_24)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+
+        with(NotificationManagerCompat.from(this)) {
+            if (ActivityCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            notify(NOTIFICATION_ID, notification.build())
+        }
+
+
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+            val name = "Download Channel"
+            val descriptionText = "Channel for download notifications"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+
+            val notificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+
+    }
+    companion object {
+        private const val CHANNEL_ID = "download_channel"
+        private const val NOTIFICATION_ID = 1
+    }
 
 }

@@ -28,7 +28,6 @@ class TravelPostAdapter(private val itravelpostclick : ITravelPostClick) : Recyc
                 false
             )
         )
-
     }
 
     override fun onBindViewHolder(holder: TravelPostViewHolder, position: Int) {
